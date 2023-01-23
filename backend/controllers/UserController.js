@@ -3,6 +3,8 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { body } = require("express-validator");
+const { default: mongoose } = require("mongoose");
+
 
 const jwtsecret = process.env.JWT_SECRET;
 
@@ -73,7 +75,80 @@ const login = async (req, res) => {
     });
 };
 
+// get current log in user
+const getCurrentUser = async(req, res) => {
+    const user = req.user;
+
+    req.status(200).json(user);
+};
+
+// upate an user
+const update = async (req, res) => {
+    const {name, password, bio} = req.body
+
+    let profileImage = null
+
+    if(req.file) {
+        profileImage = req.file.filename
+    }
+
+    const user = await User.findByIdd(mongoose.Types.ObjectId(reqUser._id)).select("-password")
+
+    if(name) {
+        user.name = name;
+    }
+
+    if (password) {
+        //gerar senha
+        const salt = await bcrypt.genSalt();
+        const passwordHash = await bcrypt.hash(password, salt);
+
+        user.password = passwordHash
+    }
+
+    if(profileImage) {
+        user.profileImage = profileImage
+    }
+
+    if(bio) {
+        user.bio = bio
+    }
+
+    await user.save();
+
+    res.status(200).json(user);
+};
+
+//get users by id
+const getUserById = async(req, res) => {
+
+    const {id} = req.params;
+
+    try {
+
+        const user = await User.findById(mongoose.Types.ObjectId(id).select("-password"));
+
+        //check user exists
+        if(!user) {
+            res.status(404).json({errors: ["Usuario não encontrado."]});
+            return;
+        }
+
+        res.status(200).json(user);
+
+    } catch (error) {
+
+        res.status(422).json({errors: ["Usuario não encontrado."]});
+        return;
+        
+    }  
+}
+
+
 module.exports = {
     register,
     login,
+    getCurrentUser,
+    update,
+    getUserById,
 }
