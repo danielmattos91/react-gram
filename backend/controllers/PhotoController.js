@@ -1,219 +1,227 @@
 const Photo = require("../models/Photo");
-const User = require("../models/User");
 
 const mongoose = require("mongoose");
 
-//insert a photo, with as user realated to it
+// Insert a photo, with an user related to it
 const insertPhoto = async (req, res) => {
-    const {title} = req.body;
-    const image = req.file.filename;
+  const { title } = req.body;
+  const image = req.file.filename;
 
-    const reqUser = req.user
+  console.log(req.body);
 
-    const user = await User.findById(reqUser._id);
+  const reqUser = req.user;
 
-    // create a photo
-    const newPhoto = await Photo.create({
-        image,
-        title,
-        userId: userId._id,
-        userName: user.name,
+  const user = await User.findById(reqUser._id);
+
+  console.log(user.name);
+
+  // Create photo
+  const newPhoto = await Photo.create({
+    image,
+    title,
+    userId: user._id,
+    userName: user.name,
+  });
+
+  // If user was photo sucessfully, return data
+  if (!newPhoto) {
+    res.status(422).json({
+      errors: ["Houve um erro, por favor tente novamente mais tarde."],
     });
+    return;
+  }
 
-    //if photo was created sucessfully, retunr data
-    if (!newPhoto) {
-        res.status(422).json({
-            errors: ["Houve um problema, por favor tente mais tarde."]
-        });
-        return;
-    }
-
-    res.status(201).json(newPhoto);
+  res.status(201).json(newPhoto);
 };
 
+// Remove a photo from the DB
 const deletePhoto = async (req, res) => {
-    
-    const {id} = req.params;
+  const { id } = req.params;
 
-    const reqUser = req.user;
-    
-    try {
-        const photo = await Photo.findById(mongoose.Types.ObjectId(id));
+  const reqUser = req.user;
 
-        // check is photo exists
-        if(!photo) {
-            res.status(404).json({errors: ["Foto não encontrada."]});
-            return;
-        }
-    
-        //check photo belongs to use
-        if(!photo.userId.equals(reqUser._id)) {
-            res.status(422).json({errors: ["Ocorreu um erro por favor tente novamente."]});
-        }
-    
-        await Photo.findByIdAndDelete(photo._id);
-    
-        res.status(200).json({id: photo._id, message: "Foto excluida com sucesso."});
+  const photo = await Photo.findById(mongoose.Types.ObjectId(id));
 
-    } catch (error) {
-        res.status(404).json({errors: ["Foto não encontrada."]});
-        return;
-    }
+  // Check if photo exists
+  if (!photo) {
+    res.status(404).json({ errors: ["Foto não encontrada!"] });
+    return;
+  }
+
+  // Check if photo belongs to user
+  if (!photo.userId.equals(reqUser._id)) {
+    res
+      .status(422)
+      .json({ errors: ["Ocorreu um erro, tente novamente mais tarde"] });
+    return;
+  }
+
+  await Photo.findByIdAndDelete(photo._id);
+
+  res
+    .status(200)
+    .json({ id: photo._id, message: "Foto excluída com sucesso." });
 };
 
-// get all photos
-const getAllPhotos = async(req, res) => {
+// Get all photos
+const getAllPhotos = async (req, res) => {
+  const photos = await Photo.find({})
+    .sort([["createdAt", -1]])
+    .exec();
 
-    const photos = await Photo.find({})
-        .sort([["createdAt", -1]])
-        .exec();
-    return res.status(200).json(photos);
-
+  return res.status(200).json(photos);
 };
 
-//get user photos
-const getUserPhotos = async(req, res) => {
+// Get user photos
+const getUserPhotos = async (req, res) => {
+  const { id } = req.params;
 
-    const {id} = req.params;
+  const photos = await Photo.find({ userId: id })
+    .sort([["createdAt", -1]])
+    .exec();
 
-    const photos = await Photo.find({})
-        .sort([["createdAt", -1]])
-        .exec();
-    return res.status(200).json(photos);
-
+  return res.status(200).json(photos);
 };
 
-const getPhotoById = async(req, res) => {
+// Get photo by id
+const getPhotoById = async (req, res) => {
+  const { id } = req.params;
 
-    const {id} = req.params;
+  const photo = await Photo.findById(mongoose.Types.ObjectId(id));
 
-    const photo = await Photo.findById(mongoose.Types.ObjectId(id));
+  // Check if photo exists
+  if (!photo) {
+    res.status(404).json({ errors: ["Foto não encontrada!"] });
+    return;
+  }
 
-    //check is photos exists
-    if(!photo) {
-        res.status(404).json({errors: ["Foto não encontrada."]});
-        return;
-    }
-
-    res.status(200).json(photo);
-
+  res.status(200).json(photo);
 };
 
-//upadate a photo
-const updatePhoto = async(req, res) => {
+// Update a photo
+const updatePhoto = async (req, res) => {
+  const { id } = req.params;
+  const { title } = req.body;
 
-    const {id} = req.params;
-    const {title} = req.user;
+  let image;
 
-    const photo = await Photo.findById(id);
+  if (req.file) {
+    image = req.file.filename;
+  }
 
-    //check is photos exists
-    if(!photo) {
-        res.status(404).json({errors: ["Foto não encontrada."]});
-        return;
-    }
-    
-    //check photo belongs to use
-    if(!photo.userId.equals(reqUser._id)) {
-        res.status(422).json({errors: ["Ocorreu um erro por favor tente novamente."]});
-        return;
-    }
+  const reqUser = req.user;
 
-    if(title) {
-        photo.title = title;
-    }
+  const photo = await Photo.findById(id);
 
-    await photo.save();
+  // Check if photo exists
+  if (!photo) {
+    res.status(404).json({ errors: ["Foto não encontrada!"] });
+    return;
+  }
 
-    res.status(200).json({photo, message: "Foto atualizada com sucesso!"});
- 
+  // Check if photo belongs to user
+  if (!photo.userId.equals(reqUser._id)) {
+    res
+      .status(422)
+      .json({ errors: ["Ocorreu um erro, tente novamente mais tarde"] });
+    return;
+  }
+
+  if (title) {
+    photo.title = title;
+  }
+
+  if (image) {
+    photo.image = image;
+  }
+
+  await photo.save();
+
+  res.status(200).json({ photo, message: "Foto atualizada com sucesso!" });
 };
 
-// like functionality
-const likePhoto = async(req, res) => {
+// Like functionality
+const likePhoto = async (req, res) => {
+  const { id } = req.params;
 
-    const {id} = req.params;
+  const reqUser = req.user;
 
-    const reqUser = req.user;
+  const photo = await Photo.findById(id);
 
-    const photo = await Photo.findById(id);
+  // Check if photo exists
+  if (!photo) {
+    res.status(404).json({ errors: ["Foto não encontrada!"] });
+    return;
+  }
 
-    //check is photos exists
-    if(!photo) {
-        res.status(404).json({errors: ["Foto não encontrada."]});
-        return;
-    }
+  // Check if user already liked the photo
+  if (photo.likes.includes(reqUser._id)) {
+    res.status(422).json({ errors: ["Você já curtiu esta foto."] });
+    return;
+  }
 
-    //check if user alredy liked the photo
-    if (photo.likes.includes(reqUser._id)) {
-        res.status(422).json({errors: ["Você ja curtiu a foto."]});
-        return;
-    }
+  // Put user id in array of likes
+  photo.likes.push(reqUser._id);
 
-    //put user id in likes array
-    photo.likes.push(reqUser._id);
+  await photo.save();
 
-    photo.save();
-
-    res.status(200).json({photoId: id, userId: reqUser._id, message: "A foto foi curtida."})
+  res
+    .status(200)
+    .json({ photoId: id, userId: reqUser._id, message: "A foto foi curtida!" });
 };
 
-// comment functiolnality
+// Comment functionality
+const commentPhoto = async (req, res) => {
+  const { id } = req.params;
+  const { comment } = req.body;
 
-const commentPhoto = async(req, res) => {
+  const reqUser = req.user;
 
-    const {id} = req.params;
-    const {comment} = req.body;
+  const user = await User.findById(reqUser._id);
 
-    const reqUser = req.user;
+  const photo = await Photo.findById(id);
 
-    const user = await User.findById(reqUser._id);
+  // Check if photo exists
+  if (!photo) {
+    res.status(404).json({ errors: ["Foto não encontrada!"] });
+    return;
+  }
 
-    const photo = await Photo.findById(id);
+  // Put comment in the array of comments
+  const userComment = {
+    comment,
+    userName: user.name,
+    userImage: user.profileImage,
+    userId: user._id,
+  };
 
-    //check is photos exists
-    if(!photo) {
-        res.status(404).json({errors: ["Foto não encontrada."]});
-        return;
-    }
+  photo.comments.push(userComment);
 
-    // put comment en the arrays comments
-    const userComment = {
-        comment,
-        userName: user.name,
-        userImage: user.profileImage,
-        userId: user._id
-    };
-    
-    photo.comments.push(userComment);
+  await photo.save();
 
-    await photo.save();
-
-    res.status(200).json({
-        comment: userComment,
-        message: "O comentario foi adicionado com sucesso."
-    });
+  res.status(200).json({
+    comment: userComment,
+    message: "Comentário adicionado com sucesso!",
+  });
 };
 
-//search phto by title
-const searchPhotos = async(res, req) => {
+// Search a photo by title
+const searchPhotos = async (req, res) => {
+  const { q } = req.query;
 
-    const {q} = req.query;
+  const photos = await Photo.find({ title: new RegExp(q, "i") }).exec();
 
-    const photos = await Photo.find({title: new RegExp(q, "i")}).exec();
-
-    res.status(200).json(photos);
+  res.status(200).json(photos);
 };
-
 
 module.exports = {
-    insertPhoto,
-    deletePhoto,
-    getAllPhotos,
-    getUserPhotos,
-    getPhotoById,
-    updatePhoto,
-    likePhoto,
-    commentPhoto,
-    searchPhotos,
+  insertPhoto,
+  deletePhoto,
+  getAllPhotos,
+  getUserPhotos,
+  getPhotoById,
+  updatePhoto,
+  likePhoto,
+  commentPhoto,
+  searchPhotos,
 };
